@@ -13,7 +13,8 @@ async function gameLoop() {
 
   let checkIfStuck = false;
   enterSim();
-  let closest = dw.findClosestMonster();
+  if(dw.c.sim){
+    let closest = dw.findClosestMonster();
   if (
     closest &&
     dw.c.sim.id === closest.simId &&
@@ -26,6 +27,8 @@ async function gameLoop() {
       gather();
     }
   }
+  }
+  
 
   if (cycle % 10 === 0) {
     console.log(cycle);
@@ -132,6 +135,7 @@ function enterSim() {
   }
 }
 async function moveAtRandom(distance = 6) {
+  //TODO if resting, move away from closest monster
   let randomMoves = [
     dw.c.x + Math.floor(Math.random() * distance) - Math.floor(distance / 2),
     dw.c.y + Math.floor(Math.random() * distance) - Math.floor(distance / 2),
