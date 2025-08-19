@@ -1,5 +1,5 @@
 // enables logging of server errors in the console
-let simDiff = -4;
+let simDiff = -2;
 dw.debug = true;
 gameLoop();
 
@@ -14,11 +14,15 @@ async function gameLoop() {
   let checkIfStuck = false;
   enterSim();
   let closest = dw.findClosestMonster();
-  if (closest && dw.distance(dw.c, closest) < 2) {
+  if (
+    closest &&
+    dw.c.sim.id === closest.simId &&
+    dw.distance(dw.c, closest) < 2
+  ) {
     dw.set("mode", "attack");
   } else {
     let tree = dw.findClosestTree();
-    if (tree && dw.distance(dw.c, tree) < 5) {
+    if (tree && dw.c.sim.id === tree.simId && dw.distance(dw.c, tree) < 5) {
       gather();
     }
   }
@@ -119,6 +123,7 @@ function enterSim() {
       dw.enterSim(7);
     } else {
       dw.enterSim(dw.character.lvl + simDiff);
+      7;
     }
     // you can choose the level of the sim, up to your character's level
   } else {
