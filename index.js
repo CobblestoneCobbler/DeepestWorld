@@ -1,6 +1,9 @@
 // enables logging of server errors in the console
-import {moveTo,moveAtRandom,followPath} from "./movement.js";
-import {manageInventory} from "./inventoryManagement.js";
+import { moveTo, moveAtRandom, followPath } from "./movement.js";
+import {
+  manageInventory,
+  moveItemsToInventory,
+} from "./inventoryManagement.js";
 let simDiff = -5;
 dw.debug = true;
 gameLoop();
@@ -14,32 +17,36 @@ async function gameLoop() {
   dw.set("cycle", cycle);
 
   let checkIfStuck = false;
-  if(dw.get("path")){
+  if (dw.get("path")) {
     followPath();
   }
   enterSim();
-  if(dw.c.sim){
+  if (dw.c.sim) {
     let closest = dw.findClosestMonster();
-  if (
-    closest &&
-    dw.c.sim.id === closest.simId &&
-    dw.distance(dw.c, closest) < 2
-  ) {
-    dw.set("mode", "attack");
-  } else {
-    let tree = dw.findClosestTree();
-    if (tree && dw.c.sim.id === tree.simId && dw.distance(dw.c, tree) < 5) {
-      gather();
+    if (
+      closest &&
+      dw.c.sim.id === closest.simId &&
+      dw.distance(dw.c, closest) < 2
+    ) {
+      dw.set("mode", "attack");
+    } else {
+      let tree = dw.findClosestTree();
+      if (tree && dw.c.sim.id === tree.simId && dw.distance(dw.c, tree) < 5) {
+        gather();
+      }
     }
   }
-  }
-  
 
   if (cycle % 10 === 0) {
     console.log(cycle);
     checkIfStuck = true;
   } else if (cycle % 10 === 3) {
-    manageInventory();
+    moveItemsToInventory(dw.c.bankTabs[1], (item) => {
+      if (item.md.includes("Skill")) {
+        return true;
+      }
+      return false;
+    });
   }
 
   //TODO store pos and check later if changed, else moveRandom
@@ -141,7 +148,9 @@ function enterSim() {
 function findEnemy() {
   console.log("finding enemy");
 
-  const target = dw.findClosestMonster((e) =>(dw.c.sim && e.simId === dw.c.sim.id));
+  const target = dw.findClosestMonster(
+    (e) => dw.c.sim && e.simId === dw.c.sim.id
+  );
   if (!target) {
     moveAtRandom();
     return;
@@ -154,10 +163,10 @@ function attack() {
     let enemy = dw.findOneEntity((e) => e.id === dw.get("enemyTarget"));
     if (enemy) {
       let skillIndex = 0;
-      if(dw.distance(dw.c, enemy) > dw.c.skills[0].stats.range){
+      if (dw.distance(dw.c, enemy) > dw.c.skills[0].stats.range) {
         moveTo(enemy);
       }
-      
+
       dw.setTarget(enemy.id);
       if (dw.c.mp < dw.c.skills[0].stats.cost) {
         skillIndex = 1;
@@ -193,4 +202,3 @@ async function gather() {
     }
   }
 }
-
