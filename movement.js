@@ -129,6 +129,22 @@ function buildRandomPath(start) {
       done = true;
       return path;
     }
+    let possibleSteps = [
+      { x: currentPos.x, y: currentPos.y - 1, bad: false },
+      { x: currentPos.x - 1, y: currentPos.y, bad: false },
+      { x: currentPos.x, y: currentPos.y + 1, bad: false },
+      { x: currentPos.x + 1, y: currentPos.y, bad: false },
+    ];
+    for (const step of possibleSteps) {
+      for (let pos of badPos) {
+        if (step.x === pos.x && step.y === pos.y) {
+          step.bad = true;
+        }
+      }
+      if (step.bad) {
+        continue;
+      }
+    }
   }
 }
 function checkStep(step) {
