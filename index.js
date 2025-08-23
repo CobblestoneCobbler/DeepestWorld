@@ -1,6 +1,7 @@
 // enables logging of server errors in the console
 import { moveTo, moveAtRandom, followPath } from "./movement.js";
 import {
+  findItem,
   manageInventory,
   moveItemsToInventory,
 } from "./inventoryManagement.js";
@@ -16,10 +17,7 @@ async function gameLoop() {
   cycle++;
   dw.set("cycle", cycle);
 
-  let checkIfStuck = false;
-  if (dw.get("path")) {
-    followPath();
-  }
+  await followPath();
 
   if (dw.c.sim) {
     let closest = dw.findClosestMonster();
@@ -37,13 +35,20 @@ async function gameLoop() {
       }
     }
   }
-  else{
-    enterSim();
-  }
+  enterSim();
 
   if (cycle % 10 === 0) {
     console.log(cycle);
-    checkIfStuck = true;
+
+    const last = dw.get("lastPos");
+    const current = [Math.floor(dw.c.x), Math.floor(dw.c.y)];
+    dw.set("lastPos", current);
+    console.log(current);
+
+    if (last[0] === current[0] && last[1] === current[1]) {
+      console.log("stuck");
+      dw.set("path", null);
+    }
   } else if (cycle % 10 === 3) {
     moveItemsToInventory(dw.c.bankTabs[1], (item) => {
       if (item.md.includes("Skill")) {
@@ -58,6 +63,13 @@ async function gameLoop() {
     case "idle": {
       if (dw.c.hp < dw.c.maxHp / 2 || dw.c.mp < dw.c.maxMp / 4) {
         console.log("Less than half health");
+        let meatIndex = findItem(
+          dw.c.bag,
+          (item) => item.name === "Cooked Meat"
+        );
+        if (meatIndex) {
+          dw.useConsumable(meatIndex);
+        }
         dw.set("mode", "resting");
       } else {
         dw.set("mode", "attack");
@@ -74,8 +86,11 @@ async function gameLoop() {
     }
     case "attack": {
       if (dw.get("enemyTarget") === null) {
-        findEnemy();
+        if (!findEnemy()) {
+          await moveAtRandom();
+        }
       }
+      /*
       if (checkIfStuck) {
         const last = dw.get("lastPos");
         const current = [Math.floor(dw.c.x), Math.floor(dw.c.y)];
@@ -90,6 +105,8 @@ async function gameLoop() {
       } else {
         attack();
       }
+      */
+      attack();
       break;
     }
     default: {
@@ -100,9 +117,6 @@ async function gameLoop() {
   setTimeout(gameLoop, 250);
 }
 
-/*
-    The world consists primarily of areas called sims (simulations). This function ensures your character is always in a sim.
-*/
 function enterSim() {
   /*
         If your character is already in an unfinished sim, then don't do anything.
@@ -136,17 +150,15 @@ function enterSim() {
   });
 
   if (worldSimulator) {
+    dw.set("path", null);
     if (dw.c.professions.woodcutting.level < 3) {
       dw.enterSim(7);
-    }
-    else if (dw.c.professions.cooking.level < 10){
+    } else if (dw.c.professions.cooking.level < 10) {
       dw.enterSim(9);
     } else {
       dw.enterSim(dw.character.lvl + simDiff);
     }
-    // you can choose the level of the sim, up to your character's level
   } else {
-    // kill your character to return to the starting spawn near the world simulator
     dw.suicide();
   }
 }
@@ -158,10 +170,10 @@ function findEnemy() {
     (e) => dw.c.sim && e.simId === dw.c.sim.id
   );
   if (!target) {
-    moveAtRandom();
     return;
   }
   dw.set("enemyTarget", target.id);
+  return true;
 }
 
 function attack() {
@@ -195,7 +207,7 @@ async function gather() {
   );
   //console.log(target);
   if (!target) {
-    await moveAtRandom(10);
+    await moveAtRandom();
     return;
   } else {
     dw.setTarget(target.id);

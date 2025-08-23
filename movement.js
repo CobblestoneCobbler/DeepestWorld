@@ -1,56 +1,49 @@
 import { delay } from "./util.js";
-export function moveAtRandom(distance = 20) {
-    //TODO if resting, move away from closest monster
-    console.log("Moving at Random");
-    console.log(`LastRand: ${dw.get("lastRand")}`);
-    if(dw.get("lastRand") > 5 || !dw.get("path")){
-        dw.set("path", null);
-        let randomMoves = [
-            dw.c.x + Math.floor(Math.random() * distance) - Math.floor(distance / 2),
-            dw.c.y + Math.floor(Math.random() * distance) - Math.floor(distance / 2),
-        ];
-        dw.set("lastRand", 0);
-        moveTo(randomMoves);
+export function moveAtRandom(distance = 10) {
+  //TODO if resting, move away from closest monster
+  followPath().then((data) => {
+    if (!data) {
+      console.log("Moving at Random");
+      dw.set("path", JSON.stringify(buildRandomPath({ x: dw.c.x, y: dw.c.y })));
     }
-    else{
-        moveTo();
-        dw.set("lastRand", dw.get("lastRand")+1);
-    }
-    }
-export async function followPath(){
-    let path = dw.get("path");
-
-  if (path) {
-    path = JSON.parse(path);
-    if (path[0]) {
-      //console.log(`Path: ${path[0]}`);
-      if (
-        Math.floor(dw.c.x) + 0.5 === path[0].x &&
-        Math.floor(dw.c.y) + 0.5 === path[0].y
-      ) {
-        path = path.shift();
-        dw.set("path", JSON.stringify(path));
-      }
-      if (path.length > 0) {
-        dw.move(path[0].x, path[0].y);
-        let resolve = delay(1000);
-        return await resolve;
-      } else {
-        dw.set("path", null);
-      }
-    } else {
-      dw.set("path", null);
-    }
-  }
+  });
 }
-export async function moveTo(target = null, random = false) {
+export async function followPath() {
   let path = dw.get("path");
-
-  if (path) {
-    followPath();
-  } else if (target) {
-    findPathTo(target);
+  if (!path) {
+    console.log("No path");
+    return;
   }
+
+  path = JSON.parse(path);
+  if (path[0]) {
+    if (
+      Math.floor(dw.c.x) + 0.5 === path[0].x &&
+      Math.floor(dw.c.y) + 0.5 === path[0].y
+    ) {
+      path = path.shift();
+      dw.set("path", JSON.stringify(path));
+    }
+  }
+  if (path.length > 0) {
+    dw.move(path[0].x, path[0].y);
+    let resolve = delay(100);
+    await resolve;
+  } else {
+    dw.set("path", null);
+    return;
+  }
+  return true;
+}
+export async function moveTo(target = null) {
+  console.log("this");
+  followPath().then((data) => {
+    if (!data) {
+      if (target) {
+        findPathTo(target);
+      }
+    }
+  });
 }
 function buildPath(start, end, random = false) {
   //TODO Add Better Rand gen
@@ -78,12 +71,8 @@ function buildPath(start, end, random = false) {
     let distance = dw.distance(start, end) + 10;
     let nextStep;
     for (const step of possibleSteps) {
-      for (let pos of badPos) {
-        if (step.x === pos.x && step.y === pos.y) {
-          step.bad = true;
-        }
-      }
-      if (step.bad) {
+      if (iterateSteps(step, badPos)) {
+        step.bad = true;
         continue;
       }
       if (checkStep(step)) {
@@ -117,15 +106,19 @@ function buildPath(start, end, random = false) {
     }
   }
 }
-function buildRandomPath(start) {
+function buildRandomPath(start, length = 10) {
   let path = [];
-  let currentPos = { x: start.x, y: start.y };
+  let currentPos = {
+    x: Math.floor(start.x) + 0.5,
+    y: Math.floor(start.y) + 0.5,
+  };
   let done = false;
   let badPos = [];
   let cycle = 0;
+  let distance = 0;
   while (!done) {
     cycle++;
-    if (path.length > 10) {
+    if (path.length > length) {
       done = true;
       return path;
     }
@@ -135,14 +128,31 @@ function buildRandomPath(start) {
       { x: currentPos.x, y: currentPos.y + 1, bad: false },
       { x: currentPos.x + 1, y: currentPos.y, bad: false },
     ];
+    let storedSteps = [];
     for (const step of possibleSteps) {
-      for (let pos of badPos) {
-        if (step.x === pos.x && step.y === pos.y) {
-          step.bad = true;
-        }
-      }
-      if (step.bad) {
+      if (iterateSteps(step, badPos)) {
+        step.bad = true;
         continue;
+      }
+      if (iterateSteps(step, path)) {
+        continue;
+      }
+      storedSteps.push(step);
+    }
+    if (storedSteps.length > 0) {
+      const random =
+        storedSteps[Math.floor(Math.random() * storedSteps.length)];
+      path.push({ x: random.x, y: random.y });
+      currentPos = { x: random.x, y: random.y };
+    } else {
+      badPos.push[currentPos];
+      if (path.length === 0) {
+        console.log("Am I boxed in?");
+        return path;
+      } else {
+        path.pop();
+        const i = path.length - 1;
+        currentPos = path[i];
       }
     }
   }
@@ -152,6 +162,14 @@ function checkStep(step) {
     dw.getTerrainAt(step.x, step.y, dw.c.z) === 0 &&
     dw.getTerrainAt(step.x, step.y, dw.c.z - 1) > 0
   );
+}
+function iterateSteps(step, array) {
+  for (const pos of array) {
+    if (step.x === pos.x && step.y === pos.y) {
+      return true;
+    }
+  }
+  return false;
 }
 
 function findPathTo(target) {
