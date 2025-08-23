@@ -20,13 +20,14 @@ async function gameLoop() {
   if (dw.get("path")) {
     followPath();
   }
-  enterSim();
+
   if (dw.c.sim) {
     let closest = dw.findClosestMonster();
     if (
       closest &&
       dw.c.sim.id === closest.simId &&
-      dw.distance(dw.c, closest) < 2
+      dw.distance(dw.c, closest) < dw.c.skills[0].range &&
+      (closest.threat === 1 || closest.bad === 1)
     ) {
       dw.set("mode", "attack");
     } else {
@@ -35,6 +36,9 @@ async function gameLoop() {
         gather();
       }
     }
+  }
+  else{
+    enterSim();
   }
 
   if (cycle % 10 === 0) {
@@ -134,9 +138,11 @@ function enterSim() {
   if (worldSimulator) {
     if (dw.c.professions.woodcutting.level < 3) {
       dw.enterSim(7);
+    }
+    else if (dw.c.professions.cooking.level < 10){
+      dw.enterSim(9);
     } else {
       dw.enterSim(dw.character.lvl + simDiff);
-      7;
     }
     // you can choose the level of the sim, up to your character's level
   } else {

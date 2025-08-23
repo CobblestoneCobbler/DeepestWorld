@@ -3,7 +3,7 @@ export function moveAtRandom(distance = 20) {
     //TODO if resting, move away from closest monster
     console.log("Moving at Random");
     console.log(`LastRand: ${dw.get("lastRand")}`);
-    if(dw.get("lastRand") > 10){
+    if(dw.get("lastRand") > 5 || !dw.get("path")){
         dw.set("path", null);
         let randomMoves = [
             dw.c.x + Math.floor(Math.random() * distance) - Math.floor(distance / 2),
