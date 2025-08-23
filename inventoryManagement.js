@@ -43,3 +43,4 @@ export function findItem(inventory,cb){
     }
     return;
 }
+function getItemRating(item) {}
