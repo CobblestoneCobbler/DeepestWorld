@@ -32,3 +32,4 @@ export function moveItemsToInventory(inventory, cb = null) {
     }
   }
 }
+function getItemRating(item) {}
