@@ -11,7 +11,6 @@ export function moveAtRandom(distance = 10) {
 export async function followPath() {
   let path = dw.get("path");
   if (!path) {
-    console.log("No path");
     return;
   }
 
@@ -36,7 +35,6 @@ export async function followPath() {
   return true;
 }
 export async function moveTo(target = null) {
-  console.log("this");
   followPath().then((data) => {
     if (!data) {
       if (target) {
@@ -46,10 +44,6 @@ export async function moveTo(target = null) {
   });
 }
 function buildPath(start, end, random = false) {
-  //TODO Add Better Rand gen
-  console.log(
-    `Building Path from ${start.x},${start.y}  to  ${end.x},${end.y}`
-  );
   let path = [];
   let currentPos = { x: start.x, y: start.y };
   let done = false;
@@ -101,8 +95,8 @@ function buildPath(start, end, random = false) {
     }
     if (cycle > 250) {
       console.log("Buildpath > 250 cycles, exiting...");
-
       done = true;
+      return path;
     }
   }
 }

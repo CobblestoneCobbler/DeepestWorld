@@ -1,4 +1,6 @@
 export function manageInventory() {
+  //TODO Get rid of underleveled meat
+
   //console.log("Inventory");
   let bag = dw.c.bag;
   for (const item in bag) {

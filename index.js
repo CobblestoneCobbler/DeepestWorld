@@ -5,8 +5,13 @@ import {
   manageInventory,
   moveItemsToInventory,
 } from "./inventoryManagement.js";
+import { parseMessage } from "./messageParsing.js";
+
 let simDiff = -5;
 dw.debug = true;
+let samsName = "Samsplatz";
+dw.on("whisperChat", (data) => parseMessage(data.message));
+
 gameLoop();
 
 async function gameLoop() {
@@ -18,27 +23,37 @@ async function gameLoop() {
   dw.set("cycle", cycle);
 
   await followPath();
-
+  let returning = false;
   if (dw.c.sim) {
     let closest = dw.findClosestMonster();
     if (
       closest &&
       dw.c.sim.id === closest.simId &&
-      dw.distance(dw.c, closest) < dw.c.skills[0].range &&
-      (closest.threat === 1 || closest.bad === 1)
+      dw.distance(dw.c, closest) < dw.c.skills[0].stats.range
     ) {
       dw.set("mode", "attack");
+      if (dw.get("enemyTarget") === null) {
+        dw.whisper(samsName, `TargetId: ${closest.id}`);
+      }
+      dw.set("enemyTarget", closest.id);
     } else {
       let tree = dw.findClosestTree();
-      if (tree && dw.c.sim.id === tree.simId && dw.distance(dw.c, tree) < 5) {
+      if (tree && dw.c.sim.id === tree.simId && dw.distance(dw.c, tree) < 3) {
         gather();
       }
+    }
+    let member = dw.findOneEntity((e) => e.id === dw.c.party[0].id);
+    if (member && dw.distance(member, dw.c) > 5) {
+      console.log("Return to Party");
+      returning = true;
+      moveTo(member);
     }
   }
   enterSim();
 
   if (cycle % 10 === 0) {
     console.log(cycle);
+    //dw.getPartyMemberInfo(samsName).then((data) => console.log(data));
 
     const last = dw.get("lastPos");
     const current = [Math.floor(dw.c.x), Math.floor(dw.c.y)];
@@ -85,10 +100,8 @@ async function gameLoop() {
       break;
     }
     case "attack": {
-      if (dw.get("enemyTarget") === null) {
-        if (!findEnemy()) {
-          await moveAtRandom();
-        }
+      if (dw.get("enemyTarget") === null && !returning) {
+        moveAtRandom(2);
       }
       /*
       if (checkIfStuck) {
@@ -151,7 +164,24 @@ function enterSim() {
 
   if (worldSimulator) {
     dw.set("path", null);
-    if (dw.c.professions.woodcutting.level < 3) {
+    if (dw.c.party.length > 0) {
+      let maxLvl = dw.c.lvl;
+      let leader;
+      for (const member of dw.c.party) {
+        console.log(`Member: ${member}`);
+        if (member.lvl < maxLvl) {
+          maxLvl = member.lvl;
+          leader = member.name;
+        }
+      }
+
+      dw.openPortal(leader)
+        .then((id) => dw.enterPortal(id))
+        .catch((e) => {
+          console.log(e);
+          dw.enterSim(maxLvl);
+        });
+    } else if (dw.c.professions.woodcutting.level < 3) {
       dw.enterSim(7);
     } else if (dw.c.professions.cooking.level < 10) {
       dw.enterSim(9);
@@ -165,12 +195,15 @@ function enterSim() {
 
 function findEnemy() {
   console.log("finding enemy");
-
+  //if()
   const target = dw.findClosestMonster(
     (e) => dw.c.sim && e.simId === dw.c.sim.id
   );
   if (!target) {
     return;
+  }
+  if (dw.get("party", true)) {
+    //dw.whisper(dw.c.party[0].name, `TargetId: ${target.id}`);
   }
   dw.set("enemyTarget", target.id);
   return true;
@@ -207,7 +240,7 @@ async function gather() {
   );
   //console.log(target);
   if (!target) {
-    await moveAtRandom();
+    //await moveAtRandom();
     return;
   } else {
     dw.setTarget(target.id);
