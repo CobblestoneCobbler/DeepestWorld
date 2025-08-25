@@ -29,8 +29,10 @@ async function gameLoop() {
     if (
       closest &&
       dw.c.sim.id === closest.simId &&
-      dw.distance(dw.c, closest) < dw.c.skills[0].stats.range
+      dw.distance(dw.c, closest) < dw.c.skills[0].stats.range &&
+      (closest.threat === 1 || closest.bad === 1)
     ) {
+      dw.set("path", null);
       dw.set("mode", "attack");
       if (dw.get("enemyTarget") === null) {
         dw.whisper(samsName, `TargetId: ${closest.id}`);
@@ -49,6 +51,8 @@ async function gameLoop() {
       moveTo(member);
     }
   }
+  await followPath();
+
   enterSim();
 
   if (cycle % 10 === 0) {
@@ -210,6 +214,8 @@ function findEnemy() {
 }
 
 function attack() {
+  //TODO LOS
+
   try {
     let enemy = dw.findOneEntity((e) => e.id === dw.get("enemyTarget"));
     if (enemy) {
