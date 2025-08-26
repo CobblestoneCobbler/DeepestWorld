@@ -15,23 +15,17 @@ export async function followPath() {
   }
 
   path = JSON.parse(path);
-  if (path[0]) {
-    if (
-      Math.floor(dw.c.x) + 0.5 === path[0].x &&
-      Math.floor(dw.c.y) + 0.5 === path[0].y
-    ) {
-      path = path.shift();
-      dw.set("path", JSON.stringify(path));
+  if (path[0] && dw.c.x === path[0].x && dw.c.y === path[0].y) {
+    path.shift();
+    if (path.length === 0) {
+      dw.set("path", null);
+      return;
     }
   }
-  if (path.length > 0) {
-    dw.move(path[0].x, path[0].y);
-    let resolve = delay(100);
-    await resolve;
-  } else {
-    dw.set("path", null);
-    return;
-  }
+  dw.move(path[0].x, path[0].y);
+  let resolve = delay(200);
+  await resolve;
+  dw.set("path", JSON.stringify(path));
   return true;
 }
 export async function moveTo(target = null) {
@@ -130,6 +124,8 @@ function buildRandomPath(start, length = 10) {
       }
       if (iterateSteps(step, path)) {
         continue;
+      }
+      if (checkStep(step)) {
       }
       storedSteps.push(step);
     }

@@ -23,6 +23,9 @@ async function gameLoop() {
   dw.set("cycle", cycle);
 
   await followPath();
+  if (dw.c.party.length === 0) {
+    dw.partyInvite("Samsplatz").then((data) => console.log(data));
+  }
   let returning = false;
   if (dw.c.sim) {
     let closest = dw.findClosestMonster();
@@ -44,11 +47,13 @@ async function gameLoop() {
         gather();
       }
     }
-    let member = dw.findOneEntity((e) => e.id === dw.c.party[0].id);
-    if (member && dw.distance(member, dw.c) > 5) {
-      console.log("Return to Party");
-      returning = true;
-      moveTo(member);
+    if (dw.c.party.length > 0) {
+      let member = dw.findOneEntity((e) => e.id === dw.c.party[0].id);
+      if (member && dw.distance(member, dw.c) > 5) {
+        console.log("Return to Party");
+        returning = true;
+        moveTo(member);
+      }
     }
   }
   await followPath();
