@@ -21,11 +21,9 @@ async function gameLoop() {
   }
   cycle++;
   dw.set("cycle", cycle);
+  let party = (dw.c.party.length > 0);
 
   await followPath();
-  if (dw.c.party.length === 0) {
-    dw.partyInvite("Samsplatz").then((data) => console.log(data));
-  }
   let returning = false;
   if (dw.c.sim) {
     let closest = dw.findClosestMonster();
@@ -47,7 +45,7 @@ async function gameLoop() {
         gather();
       }
     }
-    if (dw.c.party.length > 0) {
+    if(party){
       let member = dw.findOneEntity((e) => e.id === dw.c.party[0].id);
       if (member && dw.distance(member, dw.c) > 5) {
         console.log("Return to Party");
@@ -63,6 +61,9 @@ async function gameLoop() {
   if (cycle % 10 === 0) {
     console.log(cycle);
     //dw.getPartyMemberInfo(samsName).then((data) => console.log(data));
+    if (!party) {
+    dw.partyInvite("Samsplatz").then((data) => console.log(data));
+  }
 
     const last = dw.get("lastPos");
     const current = [Math.floor(dw.c.x), Math.floor(dw.c.y)];
