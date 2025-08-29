@@ -193,3 +193,6 @@ function findPathTo(target) {
 
   //optimal straight path, then spread out to go around
 }
+
+
+//TODO if path extends, try checking every block in between to reduce path

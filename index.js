@@ -5,13 +5,17 @@ import {
   manageInventory,
   moveItemsToInventory,
 } from "./inventoryManagement.js";
-import { parseMessage } from "./messageParsing.js";
+import { parseMessage, sendMessage } from "./messageParsing.js";
 
-let simDiff = -5;
+let simDiff = -3;
 dw.debug = true;
 let samsName = "Samsplatz";
 dw.on("whisperChat", (data) => parseMessage(data.message));
+//Switch to this vvvv
+dw.on("partyChat", (data)=> parseMessage(data.message));
 
+//initial requirements
+dw.set("partyTimeout", 100);
 gameLoop();
 
 async function gameLoop() {
@@ -36,7 +40,7 @@ async function gameLoop() {
       dw.set("path", null);
       dw.set("mode", "attack");
       if (dw.get("enemyTarget") === null) {
-        dw.whisper(samsName, `TargetId: ${closest.id}`);
+        sendMessage(`TargetId: ${closest.id}`);
       }
       dw.set("enemyTarget", closest.id);
     } else {
@@ -60,10 +64,9 @@ async function gameLoop() {
 
   if (cycle % 10 === 0) {
     console.log(cycle);
-    //dw.getPartyMemberInfo(samsName).then((data) => console.log(data));
     if (!party) {
-    dw.partyInvite("Samsplatz").then((data) => console.log(data));
-  }
+      dw.partyInvite("Samsplatz").then((data) => console.log(data));
+    }
 
     const last = dw.get("lastPos");
     const current = [Math.floor(dw.c.x), Math.floor(dw.c.y)];
@@ -81,6 +84,17 @@ async function gameLoop() {
       }
       return false;
     });
+  }
+  else if (cycle %10 === 5){
+    if(dw.c.party.length === 0){
+      let timeout = dw.get("partyTimeout");
+      timeout --;
+      if(timeout === 0){
+        dw.set("targetSim", null);
+      }
+    }else{
+      dw.set("partyTimeout", 100);
+    }
   }
 
   //TODO store pos and check later if changed, else moveRandom
@@ -111,24 +125,18 @@ async function gameLoop() {
     }
     case "attack": {
       if (dw.get("enemyTarget") === null && !returning) {
-        moveAtRandom(2);
-      }
-      /*
-      if (checkIfStuck) {
-        const last = dw.get("lastPos");
-        const current = [Math.floor(dw.c.x), Math.floor(dw.c.y)];
-        dw.set("lastPos", current);
-        console.log(current);
-        if (last[0] === current[0] && last[1] === current[1]) {
-          console.log("stuck");
-          await moveAtRandom(5);
-        } else {
-          attack();
+        if(party){
+          moveAtRandom(2);
         }
-      } else {
-        attack();
+        else{
+          if(findEnemy()){
+            attack();
+          }
+          else{
+            moveAtRandom(3);
+          }
+        }
       }
-      */
       attack();
       break;
     }
@@ -145,18 +153,12 @@ function enterSim() {
         If your character is already in an unfinished sim, then don't do anything.
     */
 
-  // dw.character represents your character
-  // dw.character.sim is the sim your character is currently in
   if (
     dw.character.sim &&
     dw.character.sim.progress !== dw.character.sim.maxProgress
   ) {
     return;
   }
-
-  /*
-        To enter a sim, you need to use a world simulator. If none is nearby, you can always kill your character to return to the starting spawn.
-    */
 
   // dw.entities is an array that contains nearby entities such as characters, monsters, and resources
   const worldSimulator = dw.entities.find((entity) => {
@@ -175,22 +177,12 @@ function enterSim() {
   if (worldSimulator) {
     dw.set("path", null);
     if (dw.c.party.length > 0) {
-      let maxLvl = dw.c.lvl;
-      let leader;
-      for (const member of dw.c.party) {
-        console.log(`Member: ${member}`);
-        if (member.lvl < maxLvl) {
-          maxLvl = member.lvl;
-          leader = member.name;
-        }
+      let level = dw.get("targetSim");
+      if(!level){
+        level = dw.character.lvl + simDiff;
+        sendMessage("SimLevel");
       }
-
-      dw.openPortal(leader)
-        .then((id) => dw.enterPortal(id))
-        .catch((e) => {
-          console.log(e);
-          dw.enterSim(maxLvl);
-        });
+      dw.enterSim(level);
     } else if (dw.c.professions.woodcutting.level < 3) {
       dw.enterSim(7);
     } else if (dw.c.professions.cooking.level < 10) {
@@ -205,15 +197,11 @@ function enterSim() {
 
 function findEnemy() {
   console.log("finding enemy");
-  //if()
   const target = dw.findClosestMonster(
     (e) => dw.c.sim && e.simId === dw.c.sim.id
   );
   if (!target) {
     return;
-  }
-  if (dw.get("party", true)) {
-    //dw.whisper(dw.c.party[0].name, `TargetId: ${target.id}`);
   }
   dw.set("enemyTarget", target.id);
   return true;
@@ -250,9 +238,7 @@ async function gather() {
   const target = dw.findClosestTree(
     (e) => (dw.c.sim && e.simId === dw.c.sim.id) || dw.distance(e, dw.c) < 5
   );
-  //console.log(target);
   if (!target) {
-    //await moveAtRandom();
     return;
   } else {
     dw.setTarget(target.id);
