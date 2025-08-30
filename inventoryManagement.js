@@ -1,7 +1,6 @@
 export function manageInventory() {
   //TODO Get rid of underleveled meat
 
-  //console.log("Inventory");
   let bag = dw.c.bag;
   for (const item in bag) {
     if (!bag[item]) {
@@ -17,7 +16,6 @@ export function manageInventory() {
     }
   }
 }
-//moveItemsToInventory(dw.c.bankTabs[1], ())
 export function moveItemsToInventory(inventory, cb = null) {
   let bag = dw.c.bag;
   for (let i in bag) {
@@ -25,7 +23,6 @@ export function moveItemsToInventory(inventory, cb = null) {
       continue;
     }
     if (cb) {
-      //Use this function
       if (cb(bag[i])) {
         dw.moveItem(bag, Number(i), inventory);
       }
@@ -43,6 +40,20 @@ export function findItem(inventory, cb) {
       return Number(i);
     }
   }
-  return;
+  return null;
 }
-function getItemRating(item) {}
+function getItemRating(item) {
+  if(item.tags.has("armor")){
+    //its Armor, boots head shoulders body !! Sheild is also
+  }
+  else if(item.tags.has("accessory")){
+    //its trinket like, Amulet, ring 1 and ring 2 belt
+  }
+  else if(item.typeMd === "weapon"){
+    //its a weapon
+    //TODO Do all weapons have baseMod of physDmg
+    let basePower = 43 + item.baseMods.physDmg * item.lvl;
+
+  }
+
+}

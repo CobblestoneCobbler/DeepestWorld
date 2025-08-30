@@ -4,7 +4,7 @@ export function moveAtRandom(distance = 10) {
   followPath().then((data) => {
     if (!data) {
       console.log("Moving at Random");
-      dw.set("path", JSON.stringify(buildRandomPath({ x: dw.c.x, y: dw.c.y })));
+      dw.set("path", JSON.stringify(buildRandomPath({ x: dw.c.x, y: dw.c.y },distance)));
     }
   });
 }
@@ -13,18 +13,19 @@ export async function followPath() {
   if (!path) {
     return;
   }
+  
 
   path = JSON.parse(path);
+  
   if (path[0] && dw.c.x === path[0].x && dw.c.y === path[0].y) {
     path.shift();
-    if (path.length === 0) {
+    
+  }
+  if (path.length === 0) {
       dw.set("path", null);
       return;
     }
-  }
   dw.move(path[0].x, path[0].y);
-  let resolve = delay(200);
-  await resolve;
   dw.set("path", JSON.stringify(path));
   return true;
 }
@@ -37,9 +38,14 @@ export async function moveTo(target = null) {
     }
   });
 }
-function buildPath(start, end, random = false) {
+function buildPath(start, end) {
+  console.log("PathFind");
+  let safeMode = dw.get("safeMode");
   let path = [];
-  let currentPos = { x: start.x, y: start.y };
+  let currentPos = {
+    x: Math.floor(start.x) + 0.5,
+    y: Math.floor(start.y) + 0.5,
+  };
   let done = false;
   let badPos = [];
   let cycle = 0;
@@ -56,36 +62,41 @@ function buildPath(start, end, random = false) {
       { x: currentPos.x, y: currentPos.y + 1, bad: false },
       { x: currentPos.x + 1, y: currentPos.y, bad: false },
     ];
-    let distance = dw.distance(start, end) + 10;
-    let nextStep;
+    let storedSteps = [];
     for (const step of possibleSteps) {
       if (iterateSteps(step, badPos)) {
         step.bad = true;
         continue;
       }
+      if(iterateSteps(step, path)) {
+        continue;
+      }
+      if(safeMode && dw.findAllEntities((e) => {e.simId === dw.c.sim.id && e.threat === 1 && dw.distance(e, step) <4}).length > 0){
+        console.log("safeMode and Threat along path");
+        continue;
+      }
       if (checkStep(step)) {
-        let dist = dw.distance(end, step);
-        if (dist < distance || random) {
-          distance = dist;
-          nextStep = step;
-        }
-      } else {
-        step.bad = true;
+        storedSteps.push(step);
       }
     }
-    if (nextStep) {
-      //console.log(`Next Step : ${nextStep.x}, ${nextStep.y}`);
-      if (path.length > 1) {
-        if (nextStep === path[path.length - 2]) {
-          //Path is being repeated
-          badPos.push(currentPos);
-          currentPos = path[path.length - 1];
-          continue;
+    if (storedSteps.length > 0) {
+      let distance = 200;
+      let selectedStep;
+      for(const step of storedSteps){
+        let currentDistance = dw.distance(step, end);
+        if(currentDistance < distance){
+          distance = currentDistance;
+          selectedStep = step;
         }
       }
-      //setup next step
-      path.push(nextStep);
-      currentPos = nextStep;
+      path.push({x:selectedStep.x, y: selectedStep.y});
+      currentPos = {x:selectedStep.x, y: selectedStep.y};
+    }
+    else{
+      if(path.length > 1){
+        path.pop();
+        currentPos = path[path.length-1];
+      }
     }
     if (cycle > 250) {
       console.log("Buildpath > 250 cycles, exiting...");
@@ -95,6 +106,8 @@ function buildPath(start, end, random = false) {
   }
 }
 function buildRandomPath(start, length = 10) {
+  console.log("Random PathFind")
+  let safeMode = dw.get("safeMode");
   let path = [];
   let currentPos = {
     x: Math.floor(start.x) + 0.5,
@@ -103,7 +116,6 @@ function buildRandomPath(start, length = 10) {
   let done = false;
   let badPos = [];
   let cycle = 0;
-  let distance = 0;
   while (!done) {
     cycle++;
     if (path.length > length) {
@@ -125,9 +137,15 @@ function buildRandomPath(start, length = 10) {
       if (iterateSteps(step, path)) {
         continue;
       }
-      if (checkStep(step)) {
+      if(safeMode && dw.findAllEntities((e) => {e.simId === dw.c.sim.id && e.threat === 1 && dw.distance(e, step) <4}).length > 0){
+        console.log("safeMode and Threat along path");
+        continue;
       }
-      storedSteps.push(step);
+      if (checkStep(step)) {
+        storedSteps.push(step);
+      }
+
+      
     }
     if (storedSteps.length > 0) {
       const random =

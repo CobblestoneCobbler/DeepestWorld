@@ -7,7 +7,7 @@ import {
 } from "./inventoryManagement.js";
 import { parseMessage, sendMessage } from "./messageParsing.js";
 
-let simDiff = -3;
+let simDiff = -5;
 dw.debug = true;
 let samsName = "Samsplatz";
 dw.on("whisperChat", (data) => parseMessage(data.message));
@@ -100,15 +100,9 @@ async function gameLoop() {
   //TODO store pos and check later if changed, else moveRandom
   switch (dw.get("mode")) {
     case "idle": {
+      dw.set("safeMode", true);
       if (dw.c.hp < dw.c.maxHp / 2 || dw.c.mp < dw.c.maxMp / 4) {
         console.log("Less than half health");
-        let meatIndex = findItem(
-          dw.c.bag,
-          (item) => item.name === "Cooked Meat"
-        );
-        if (meatIndex) {
-          dw.useConsumable(meatIndex);
-        }
         dw.set("mode", "resting");
       } else {
         dw.set("mode", "attack");
@@ -119,11 +113,23 @@ async function gameLoop() {
       if (dw.c.hp === dw.c.maxHp && dw.c.mp === dw.c.maxMp) {
         console.log("Ready to Fight!");
         dw.set("mode", "idle");
+      }else{
+        if(cycle %10 ===0){
+          let meatIndex = findItem(
+            dw.c.bag,
+            (item) => item.md === "cookedMeat"
+          );
+          if (meatIndex !== null) {
+            dw.useConsumable(meatIndex);
+          }
+        }
       }
+      moveAtRandom(2);
       await gather();
       break;
     }
     case "attack": {
+      dw.set("safeMode", false);
       if (dw.get("enemyTarget") === null && !returning) {
         if(party){
           moveAtRandom(2);
@@ -225,13 +231,26 @@ function attack() {
       if (!dw.canUseSkill(skillIndex, enemy.id)) {
         return;
       }
-      dw.useSkill(skillIndex, enemy.id);
+      if(dw.c.party.length > 0 && enemy.hp === enemy.maxHp){
+        //TODO Life or death check
+        console.log("Waiting for party to start");
+        return;
+      }
+      let result = dw.useSkill(skillIndex, enemy.id);
+      result.then((e) => {
+        console.log(e);
+        if(e=== 1088){
+          console.log("LOS Error");
+          moveTo(enemy);
+        }
+      })
     } else {
       dw.set("enemyTarget", null);
       dw.set("mode", "idle");
     }
-  } catch {
+  } catch (e){
     console.log("Error in Attack()");
+    console.log(e);
   }
 }
 async function gather() {
