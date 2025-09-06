@@ -32,11 +32,17 @@ export async function followPath() {
 export async function moveTo(target = null) {
   followPath().then((data) => {
     if (!data) {
-      if (target) {
+      if (target.id) {
         findPathTo(target);
+      }
+      else{
+        buildPath(dw.c, target);
       }
     }
   });
+}
+export function kite(target, minDist, maxDist){
+    //TODO make a build path with cb as goal for reusability
 }
 function buildPath(start, end) {
   console.log("PathFind");

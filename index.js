@@ -6,8 +6,11 @@ import {
   moveItemsToInventory,
 } from "./inventoryManagement.js";
 import { parseMessage, sendMessage } from "./messageParsing.js";
+import { goCrafting } from "./crafting.js";
+import { delay } from "./util.js";
 
 let simDiff = -5;
+let override = false;
 dw.debug = true;
 let samsName = "Samsplatz";
 dw.on("whisperChat", (data) => parseMessage(data.message));
@@ -18,140 +21,170 @@ dw.on("partyChat", (data)=> parseMessage(data.message));
 dw.set("partyTimeout", 100);
 gameLoop();
 
+
 async function gameLoop() {
-  let cycle = dw.get("cycle");
-  if (!cycle) {
-    cycle = 0;
-  }
-  cycle++;
-  dw.set("cycle", cycle);
-  let party = (dw.c.party.length > 0);
+  if(override){
+    //DO STUFF
+    console.log("override");
+    await goCrafting();
+    //Loop
+    setTimeout(gameLoop, 250);
+  }else{
 
-  await followPath();
-  let returning = false;
-  if (dw.c.sim) {
-    let closest = dw.findClosestMonster();
-    if (
-      closest &&
-      dw.c.sim.id === closest.simId &&
-      dw.distance(dw.c, closest) < dw.c.skills[0].stats.range &&
-      (closest.threat === 1 || closest.bad === 1)
-    ) {
-      dw.set("path", null);
-      dw.set("mode", "attack");
-      if (dw.get("enemyTarget") === null) {
-        sendMessage(`TargetId: ${closest.id}`);
-      }
-      dw.set("enemyTarget", closest.id);
-    } else {
-      let tree = dw.findClosestTree();
-      if (tree && dw.c.sim.id === tree.simId && dw.distance(dw.c, tree) < 3) {
-        gather();
-      }
+  
+    let cycle = dw.get("cycle");
+    if (!cycle) {
+      cycle = 0;
     }
-    if(party){
-      let member = dw.findOneEntity((e) => e.id === dw.c.party[0].id);
-      if (member && dw.distance(member, dw.c) > 5) {
-        console.log("Return to Party");
-        returning = true;
-        moveTo(member);
+    cycle++;
+    dw.set("cycle", cycle);
+    let party = (dw.c.party.length > 0);
+
+    await followPath();
+    let returning = false;
+    if (dw.c.sim) {
+      let closest = dw.findClosestMonster();
+      if (
+        closest &&
+        dw.get("safeMode") &&
+        dw.c.sim.id === closest.simId &&
+        dw.distance(dw.c, closest) < dw.c.skills[0].stats.range &&
+        (closest.threat === 1 || closest.bad === 1)
+      ) {
+        dw.set("path", null);
       }
-    }
-  }
-  await followPath();
-
-  enterSim();
-
-  if (cycle % 10 === 0) {
-    console.log(cycle);
-    if (!party) {
-      dw.partyInvite("Samsplatz").then((data) => console.log(data));
-    }
-
-    const last = dw.get("lastPos");
-    const current = [Math.floor(dw.c.x), Math.floor(dw.c.y)];
-    dw.set("lastPos", current);
-    console.log(current);
-
-    if (last[0] === current[0] && last[1] === current[1]) {
-      console.log("stuck");
-      dw.set("path", null);
-    }
-  } else if (cycle % 10 === 3) {
-    moveItemsToInventory(dw.c.bankTabs[1], (item) => {
-      if (item.md.includes("Skill")) {
-        return true;
-      }
-      return false;
-    });
-  }
-  else if (cycle %10 === 5){
-    if(dw.c.party.length === 0){
-      let timeout = dw.get("partyTimeout");
-      timeout --;
-      if(timeout === 0){
-        dw.set("targetSim", null);
-      }
-    }else{
-      dw.set("partyTimeout", 100);
-    }
-  }
-
-  //TODO store pos and check later if changed, else moveRandom
-  switch (dw.get("mode")) {
-    case "idle": {
-      dw.set("safeMode", true);
-      if (dw.c.hp < dw.c.maxHp / 2 || dw.c.mp < dw.c.maxMp / 4) {
-        console.log("Less than half health");
-        dw.set("mode", "resting");
-      } else {
+      else if(closest &&
+        dw.c.sim.id === closest.simId &&
+        dw.distance(dw.c,closest) < 2 &&
+        (closest.threat === 1 || closest.bad === 1)
+      ){
+        dw.set("path", null);
         dw.set("mode", "attack");
+        if (dw.get("enemyTarget") === null) {
+          sendMessage(`TargetId: ${closest.id}`);
+        }
+        dw.set("enemyTarget", closest.id);
+      } else {
+        let tree = dw.findClosestTree();
+        if (tree && dw.c.sim.id === tree.simId && dw.distance(dw.c, tree) < 3) {
+          gather();
+        }
       }
-      break;
+      if(party){
+        let member = dw.findOneEntity((e) => e.id === dw.c.party[0].id);
+        if (member && dw.distance(member, dw.c) > 5) {
+          console.log("Return to Party");
+          returning = true;
+          moveTo(member);
+        }
+      }
     }
-    case "resting": {
-      if (dw.c.hp === dw.c.maxHp && dw.c.mp === dw.c.maxMp) {
-        console.log("Ready to Fight!");
-        dw.set("mode", "idle");
+    await followPath();
+    if(!dw.c.sim && !dw.get("craftingCd")){
+      dw.set("mode", "crafting");
+      dw.set("path", null);
+    }else{
+      enterSim();
+    }
+    if(cycle % 25 ===0){
+      dw.set("craftingCd", false);
+    }
+
+    if (cycle % 10 === 0) {
+      console.log(cycle);
+      if (!party) {
+        dw.partyInvite("Samsplatz").then((data) => console.log(data));
+      }
+
+      const last = dw.get("lastPos");
+      const current = [Math.floor(dw.c.x), Math.floor(dw.c.y)];
+      dw.set("lastPos", current);
+      console.log(current);
+
+      if (last[0] === current[0] && last[1] === current[1]) {
+        console.log("stuck");
+        dw.set("path", null);
+      }
+    } else if (cycle % 10 === 3) {
+      manageInventory();
+    }
+    else if (cycle %10 === 5){
+      if(dw.c.party.length === 0){
+        let timeout = dw.get("partyTimeout");
+        timeout --;
+        if(timeout === 0){
+          dw.set("targetSim", null);
+        }
       }else{
-        if(cycle %10 ===0){
-          let meatIndex = findItem(
-            dw.c.bag,
-            (item) => item.md === "cookedMeat"
-          );
-          if (meatIndex !== null) {
-            dw.useConsumable(meatIndex);
+        dw.set("partyTimeout", 100);
+      }
+    }
+
+    //TODO store pos and check later if changed, else moveRandom
+    switch (dw.get("mode")) {
+      case "idle": {
+        dw.set("safeMode", true);
+        if (dw.c.hp < dw.c.maxHp / 2 || dw.c.mp < dw.c.maxMp / 4) {
+          console.log("Less than half health");
+          dw.set("mode", "resting");
+        } else {
+          dw.set("mode", "attack");
+        }
+        break;
+      }
+      case "resting": {
+        if (dw.c.hp === dw.c.maxHp && dw.c.mp === dw.c.maxMp) {
+          console.log("Ready to Fight!");
+          dw.set("mode", "idle");
+        }else{
+          if(cycle %10 ===0){
+            let meatIndex = findItem(
+              dw.c.bag,
+              (item) => item.md === "cookedMeat"
+            );
+            if (meatIndex !== null) {
+              dw.useConsumable(meatIndex);
+            }
           }
         }
+        moveAtRandom(2);
+        await gather();
+        break;
       }
-      moveAtRandom(2);
-      await gather();
-      break;
-    }
-    case "attack": {
-      dw.set("safeMode", false);
-      if (dw.get("enemyTarget") === null && !returning) {
-        if(party){
-          moveAtRandom(2);
-        }
-        else{
-          if(findEnemy()){
-            attack();
+      case "attack": {
+        dw.set("safeMode", false);
+        if (dw.get("enemyTarget") === null && !returning) {
+          if(party){
+            moveAtRandom(2);
           }
           else{
-            moveAtRandom(3);
+            if(findEnemy()){
+              attack();
+            }
+            else{
+              moveAtRandom(3);
+            }
           }
         }
+        attack();
+        break;
       }
-      attack();
-      break;
+      case "crafting":{
+        dw.teleportToPlot(20,20,-1);
+        const crafting = await goCrafting();
+        if(!crafting){
+          dw.set("mode", "idle");
+          dw.set("craftingCd", true);
+        }
+        break;
+      }
+      default: {
+        dw.set("mode", "idle");
+      }
     }
-    default: {
-      dw.set("mode", "idle");
-    }
-  }
 
-  setTimeout(gameLoop, 250);
+    setTimeout(gameLoop, 250);
+  }
 }
 
 function enterSim() {
