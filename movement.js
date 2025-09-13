@@ -4,7 +4,7 @@ export function moveAtRandom(distance = 10) {
   followPath().then((data) => {
     if (!data) {
       console.log("Moving at Random");
-      dw.set("path", JSON.stringify(buildRandomPath({ x: dw.c.x, y: dw.c.y },distance)));
+      dw.set("path", JSON.stringify(smoothCorners(buildRandomPath({ x: dw.c.x, y: dw.c.y },distance))));
     }
   });
 }
@@ -36,13 +36,28 @@ export async function moveTo(target = null) {
         findPathTo(target);
       }
       else{
-        buildPath(dw.c, target);
+        dw.set("path", JSON.stringify(smoothCorners(buildPath(dw.c, target))));
       }
     }
   });
 }
 export function kite(target, minDist, maxDist){
     //TODO make a build path with cb as goal for reusability
+}
+
+
+export function checkLOS(){
+  let currentPos = {x:dw.c.x, y:dw.c.y};
+  const angle = Math.atan2(dw.c.dy, dw.c.dx);
+  for(let i = 0; i< dw.c.skills[0].stats.range * 4; i++){
+    if(checkStep(currentPos) === false){
+      return "NO LOS";
+    }
+    currentPos.x += (Math.cos(angle))/4;
+    currentPos.y += (Math.sin(angle))/4;
+    console.log(currentPos);
+  }
+  return true;
 }
 function buildPath(start, end) {
   console.log("PathFind");
@@ -104,8 +119,8 @@ function buildPath(start, end) {
         currentPos = path[path.length-1];
       }
     }
-    if (cycle > 250) {
-      console.log("Buildpath > 250 cycles, exiting...");
+    if (cycle > 10000) {
+      console.log("Buildpath > 10000 cycles, exiting...");
       done = true;
       return path;
     }
@@ -143,7 +158,7 @@ function buildRandomPath(start, length = 10) {
       if (iterateSteps(step, path)) {
         continue;
       }
-      if(safeMode && dw.findAllEntities((e) => {e.simId === dw.c.sim.id && e.threat === 1 && dw.distance(e, step) <4}).length > 0){
+      if(safeMode && dw.findAllEntities((e) => {e.simId === dw.c.sim.id && e.threat === 1 && dw.distance(e, step) <5}).length > 0){
         console.log("safeMode and Threat along path");
         continue;
       }
@@ -212,11 +227,35 @@ function findPathTo(target) {
       z: Math.floor(target[2]) + 0.5,
     };
   }
-  let path = buildPath(characterLocation, targetLocation);
+  let path = smoothCorners(buildPath(characterLocation, targetLocation));
   dw.set("path", JSON.stringify(path));
 
   //optimal straight path, then spread out to go around
 }
 
+function smoothCorners(path){
+  let newPath = [];
+  let skipNext = false;
+  for(let i = 0; i < path.length -2; i++){
+    if(skipNext){
+      skipNext = false;
+    }else{
+      newPath.push(path[i]);
+    }
+    const xDiff = path[i+2].x - path[i].x;
+    if( xDiff <= 1 && xDiff >= -1 ) {
+      const yDiff = path[i+2].y - path[i].y;
+      if( yDiff <= 1 && yDiff >= -1 ){
+        //Is a 1 away corner
+        if(checkStep({x:path[i].x + xDiff, y:path[i].y}) && checkStep({x:path[i].x, y:path[i].y + yDiff})){
+          skipNext = true;
+        }
+
+      }
+    }
+
+  }
+  return newPath;
+}
 
 //TODO if path extends, try checking every block in between to reduce path
