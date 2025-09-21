@@ -52,13 +52,14 @@ async function gameLoop() {
 
     await followPath();
     let returning = false;
-    if (dw.c.sim) {
+    if (dw.c.sim  && dw.get("mode") !== "attack") {
       let closest = dw.findClosestMonster((n) => dw.c.sim.id === n.simId);
       if (closest) {
         let distance = dw.distance(dw.c, closest);
         let inRange = distance < dw.c.skills[0].stats.range;
+        let safeMode = dw.get("safeMode");
         if (
-          dw.get("safeMode") &&
+          safeMode &&
           inRange &&
           (closest.threat === 1 || closest.bad === 1)
         ) {
@@ -74,7 +75,7 @@ async function gameLoop() {
         }
       } else {
         let tree = dw.findClosestTree();
-        if (tree && dw.c.sim.id === tree.simId && dw.distance(dw.c, tree) < 3) {
+        if (tree && dw.c.sim.id === tree.simId && dw.distance(dw.c, tree) < 2) {
           gather();
         }
       }
@@ -91,6 +92,7 @@ async function gameLoop() {
     if (!dw.c.sim && !dw.get("craftingCd")) {
       dw.set("mode", "crafting");
       dw.set("path", null);
+      dw.set("enemyTarget", null);
     } else {
       enterSim();
     }
@@ -116,7 +118,7 @@ async function gameLoop() {
 
       if (last[0] === current[0] && last[1] === current[1]) {
         console.log("stuck");
-        dw.set("path", null);
+        
       }
     } else if (cycle % 10 === 3) {
       manageInventory();
@@ -250,49 +252,54 @@ function findEnemy() {
     (e) => dw.c.sim && e.simId === dw.c.sim.id
   );
   if (!target) {
-    return;
+    return false;
   }
   dw.set("enemyTarget", target.id);
   return true;
 }
 
 function attack() {
-  //TODO LOS
-
   try {
     let enemy = dw.findOneEntity((e) => e.id === dw.get("enemyTarget"));
-    if (enemy) {
-      let skillIndex = 0;
-      if (dw.distance(dw.c, enemy) > dw.c.skills[0].stats.range || checkLOS() === "NO LOS") {
-        if(dw.get("cycle")%10 === 0){
-          dw.set("path", null);
-        }
-        moveTo(enemy);
-      }
-      if(dw.findClosestMonster((e) => e.simId === dw.c.sim.id).id !== enemy.id){
-        dw.set("enemyTarget", null);
-        dw.set("path", null);
-        return;
-      }
-      dw.setTarget(enemy.id);
-      if (dw.c.mp < dw.c.skills[0].stats.cost) {
-        skillIndex = 1;
-      }
-      if (!dw.canUseSkill(skillIndex, enemy.id)) {
-        return;
-      }
-      if (dw.c.party.length > 0 && enemy.hp === enemy.maxHp) {
-        //TODO Life or death check
-        console.log("Waiting for party to start");
-        return;
-      }
-      dw.useSkill(skillIndex, enemy.id);
-      
-      
-    } else {
+    if (!enemy) {
       dw.set("enemyTarget", null);
       dw.set("mode", "idle");
+      return;
     }
+    
+    let skillIndex = 0;
+    if(dw.c.mp < dw.c.skills[0].stats.cost){
+      skillIndex ++;
+    }
+    let range = dw.c.skills[skillIndex].stats.range;
+    if (dw.distance(dw.c, enemy) > range) {
+      if(dw.get("cycle")%10 === 0){
+        dw.set("path", null);
+      }
+      moveTo(enemy);
+    }else if(skillIndex === 0 && checkLOS() === "NO LOS"){
+      if(dw.get("cycle")%10 === 0){
+        dw.set("path", null);
+      }
+      moveAtRandom(2);
+      return;
+    }
+    let closest = dw.findClosestMonster((e) => e.simId === dw.c.sim.id);
+    if(closest.id !== enemy.id){
+      dw.set("enemyTarget", closest.id);
+      dw.set("path", null);
+      return;
+    }
+    dw.setTarget(enemy.id);
+    if (!dw.canUseSkill(skillIndex, enemy.id)) {
+      return;
+    }
+    if (dw.c.party.length > 0 && enemy.hp === enemy.maxHp) {
+      //TODO Life or death check
+      console.log("Waiting for party to start");
+      return;
+    }
+    dw.useSkill(skillIndex, enemy.id);
   } catch (e) {
     console.log("Error in Attack()");
     console.log(e);

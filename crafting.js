@@ -6,7 +6,7 @@ const craftingArray = [{profession:"woodworking", recipes:[{input:"Log",output:"
 export async function goCrafting(){
 
     
-    let craftsLeft  = false;
+    let craftsLeft = false;
     for(const p of craftingArray){
         const lvl = Math.floor(dw.c.professions[p.profession].lvl /10) *10;
         const professionNum = dw.c.professions[p.profession].profession;
